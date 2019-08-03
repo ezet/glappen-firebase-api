@@ -1,4 +1,5 @@
 import * as functions from 'firebase-functions';
+import {https} from 'firebase-functions';
 import * as admin from "firebase-admin";
 import {HttpsError} from "firebase-functions/lib/providers/https";
 import FieldValue = admin.firestore.FieldValue;
@@ -32,43 +33,53 @@ function reserveHanger(ref: FirebaseFirestore.DocumentReference) {
     return ref.update(data)
 }
 
+export const requestCheckOut = onCall(async (data, context) => {
+
+});
+
+function onCall(handler: (data: any, context: https.CallableContext) => any) {
+    return functions.region('europe-west2').https.onCall(handler);
+
+}
+
+async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot, venueRef: FirebaseFirestore.DocumentReference, context: functions.https.CallableContext, sectionRef: FirebaseFirestore.DocumentReference, wardrobeRef: FirebaseFirestore.DocumentReference) {
+    const hangerName: string = await hanger.get('id');
+    const venueName = (await venueRef.get()).get('name');
+
+    // if (context.auth === undefined) throw new HttpsError("unauthenticated", "");
+    const userId = context.auth === undefined ? 'UyasY6VeR4OY3R4Z3r2xFy9cASh2' : context.auth.uid;
+    // const userId =
+
+
+    const userRef = db.doc(`users/${userId}`);
+
+    const reservationData = {
+        section: sectionRef,
+        hanger: hanger.ref,
+        hangerName: hangerName,
+        user: userRef,
+        venue: venueRef,
+        venueName: venueName,
+        wardrobe: wardrobeRef,
+        state: 4,
+        reservationTime: FieldValue.serverTimestamp()
+    };
+    const ref = await db.collection('reservations').add(reservationData);
+    return {reservation: ref};
+}
+
 // noinspection JSUnusedGlobalSymbols
-export const createReservation = functions
-    .region('europe-west2')
-    .https.onCall(async (data, context) => {
-        const code = tokenize(data.code);
-
-        const venueRef = db.doc(`/venues/${code.venueId}`);
-
-        const wardrobeRef = db.doc(venueRef.path + `/wardrobes/${code.wardrobeId}`);
-        const sectionRef = db.doc(wardrobeRef.path + `/sections/${code.sectionId}`);
-        const hanger = await findAvailableHanger(sectionRef);
-        if (hanger === null) throw new HttpsError("resource-exhausted", "no hangers available", sectionRef.path);
-        await reserveHanger(hanger.ref);
-        const hangerName: string = await hanger.get('id');
-        const venueName = (await venueRef.get()).get('name');
-
-        // if (context.auth === undefined) throw new HttpsError("unauthenticated", "");
-        const userId = context.auth === undefined ? 'UyasY6VeR4OY3R4Z3r2xFy9cASh2' : context.auth.uid;
-        // const userId =
-
-
-        const userRef = db.doc(`users/${userId}`);
-
-        const reservationData = {
-            section: sectionRef,
-            hanger: hanger.ref,
-            hangerName: hangerName,
-            user: userRef,
-            venue: venueRef,
-            venueName: venueName,
-            wardrobe: wardrobeRef,
-            state: 4,
-            reservationTime: FieldValue.serverTimestamp()
-        };
-        const ref = await db.collection('reservations').add(reservationData);
-        return {reservation: ref};
-    });
+export const requestCheckIn = onCall(async (data, context) => {
+    const code = tokenize(data.code);
+    const venueRef = db.doc(`/venues/${code.venueId}`);
+    const wardrobeRef = db.doc(venueRef.path + `/wardrobes/${code.wardrobeId}`);
+    const sectionRef = db.doc(wardrobeRef.path + `/sections/${code.sectionId}`);
+    const hanger = await findAvailableHanger(sectionRef);
+    if (hanger === null) throw new HttpsError("resource-exhausted", "no hangers available", sectionRef.path);
+    // TODO: wrap in transaction
+    await reserveHanger(hanger.ref);
+    return await createReservation(hanger, venueRef, context, sectionRef, wardrobeRef);
+});
 
 class QrCode {
     constructor(public venueId: string, public wardrobeId: string, public sectionId: string) {
