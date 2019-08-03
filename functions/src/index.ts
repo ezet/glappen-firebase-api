@@ -1,5 +1,4 @@
 import * as functions from 'firebase-functions';
-import {https} from 'firebase-functions';
 import * as admin from "firebase-admin";
 import {CallableContext, HttpsError} from "firebase-functions/lib/providers/https";
 import FieldValue = admin.firestore.FieldValue;
@@ -43,19 +42,24 @@ function reserveHanger(ref: FirebaseFirestore.DocumentReference) {
 }
 
 
+// noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
 /**
  * Requests a check-out
  */
-// noinspection JSUnusedGlobalSymbols
 export const requestCheckOut = onCall(async (data, context) => {
-
+    const ref = db.doc(`reservations/${data.reservation}`);
+    const newData = {
+        state: ReservationState.CHECKING_OUT,
+        stateUpdated: FieldValue.serverTimestamp()
+    };
+    await ref.update(newData);
 });
 
 /**
  * Convenience function to create a https call function.
  * @param handler The call handler
  */
-function onCall(handler: (data: any, context: https.CallableContext) => any) {
+function onCall(handler: (data: any, context: functions.https.CallableContext) => any) {
     return functions.region('europe-west2').https.onCall(handler);
 }
 
@@ -66,6 +70,10 @@ function onCall(handler: (data: any, context: https.CallableContext) => any) {
 function getUser(context: CallableContext) {
     // context.auth is undefined when running in the emulator, provide a default uid
     return context.auth === undefined ? 'UyasY6VeR4OY3R4Z3r2xFy9cASh2' : context.auth.uid;
+}
+
+enum ReservationState { // noinspection JSUnusedGlobalSymbols
+    CHECK_IN_REJECTED, CHECKED_OUT, CHECKED_IN, CHECKING_OUT, CHECKING_IN
 }
 
 async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot, venueRef: FirebaseFirestore.DocumentReference, context: functions.https.CallableContext, sectionRef: FirebaseFirestore.DocumentReference, wardrobeRef: FirebaseFirestore.DocumentReference) {
@@ -82,20 +90,20 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
         venue: venueRef,
         venueName: venueName,
         wardrobe: wardrobeRef,
-        state: 4,
+        state: ReservationState.CHECKING_IN,
         reservationTime: FieldValue.serverTimestamp()
     };
     const ref = await db.collection('reservations').add(reservationData);
     return {reservation: ref};
 }
 
+// noinspection JSUnusedGlobalSymbols
 /**
  * Requests a check-in.
  * Finds and available hanger, reserves it and creates a new reservation entry.
  *
  * Returns 'resource-exhausted' if there are no available hangers.
  */
-// noinspection JSUnusedGlobalSymbols
 export const requestCheckIn = onCall(async (data, context) => {
     const code = tokenize(data.code);
     const venueRef = db.doc(`/venues/${code.venueId}`);
