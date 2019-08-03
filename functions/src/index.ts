@@ -52,7 +52,8 @@ export const requestCheckOut = onCall(async (data, context) => {
         state: ReservationState.CHECKING_OUT,
         stateUpdated: FieldValue.serverTimestamp()
     };
-    await ref.update(newData);
+    const wr = await ref.update(newData);
+    return {writeTime: wr.writeTime};
 });
 
 /**
@@ -75,6 +76,19 @@ function getUser(context: CallableContext) {
 enum ReservationState { // noinspection JSUnusedGlobalSymbols
     CHECK_IN_REJECTED, CHECKED_OUT, CHECKED_IN, CHECKING_OUT, CHECKING_IN
 }
+
+
+// noinspection JSUnusedGlobalSymbols
+export const confirmCheckIn = onCall(async (data, context) => {
+    const ref = data.reservation;
+    const payload = {
+        checkIn: FieldValue.serverTimestamp(),
+        stateUpdated: FieldValue.serverTimestamp(),
+        state: ReservationState.CHECKED_IN
+    };
+    const wr = await ref.update(payload);
+    return {writeTime: wr.writeTime};
+});
 
 async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot, venueRef: FirebaseFirestore.DocumentReference, context: functions.https.CallableContext, sectionRef: FirebaseFirestore.DocumentReference, wardrobeRef: FirebaseFirestore.DocumentReference) {
     const hangerName: string = await hanger.get('id');
