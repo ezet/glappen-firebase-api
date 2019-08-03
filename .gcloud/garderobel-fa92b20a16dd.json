@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "garderobel",
+  "private_key_id": "fa92b20a16dd344ca19a081a07d1a7a6f838f716",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEuwIBADANBgkqhkiG9w0BAQEFAASCBKUwggShAgEAAoIBAQCtKha8tejTiMBz\nWQ8BtegUcDBXsLsctSO9oHXEN1ei95abjCcjHUMUG/ROXRDDqtYoK3k9+H+UaT2N\n+2Jm0xpjjNd0vJq3GZhPwQA/L+XwEoOXRwUn3L96JkXGUydd3n8b2J7PXoV5IYtA\nEL1fe3dvcaqc3Z1OlteGTmUqBmzJiXVow17ivM5OIj9VQWmuKvVrERBSf8RVpay4\nP1/AwXd8y9GfWYc8XTE5JaIiBQp3/WmaSyvrUGPXjBbWrdoqu5Ri9VViX8O+cMlz\npJUgam4vVwVQfXYHE5pXh0N9mLzeb8LlWRd/+LgqQk+/nueQF+VEaU+lTJ7xS3VT\ns2oM62ZLAgMBAAECgf840ZakVQwQXM7JCm/iH84G5sj1/QdoZAdWMVBzEbWvw42n\nfFVbMD7SWlnPXLojeerLQ3iE3QT/rYiFDfc7xgjioVQQ+dHKQpu3j5yFHzJTk7+Z\n47PNYKFzcxtx99by9g6/FFUHtfwVwuvuGZAJxHlsF9/jmNQE9XnCl/aZ04HenrFf\nNj627aNPp0E3RY9JuIw+zuLQMVQgSCRsDY5V4d4oZ/OgcOiX8zCDYNETOGNnoVCm\nGE2YZAnhCQT1xZwI54fB1NnIqzjElpa2eswubwRtfmiQKOjwtc3W7lX0Fnid2dLt\nlp04tQbZQH8zZ26NXsEkcpTBnQFF4fKaY0vzLqECgYEA4lbXAex9zOPHekoMZULi\nwoXZVB9ydIRvQBJkiDkHx580i73rkUwlRaqOAKkZOk+cXQn3jyre9UFbJO0tW0+Y\n6G69fCMmEjjz51iO09dyARfD7SJ/2ZT5hs6P9lVOMaE3SMMKlmenzZvXwyXs67+P\nU8QPVSwwKQ4KD0/XSViAK00CgYEAw9tbPrW31gTlPEymdoXa/CQiAGafKkY1m0O8\nbroy+OLZ/KNHwgX7oQCr9WyeNd8uF+d1SFzN+fRxQSojVMdIkY6LVFL5rSSLCM6v\noMtQM5wcvJPgvaod5zFkezlJP/MYqIWfIzLD+BnB4I3OiCNsNILIiRb+tjv6oXy9\n9QIym/cCgYAUoN+FsF0i0Fu83ITWscri+bn9/cO7tNpC16pL9A6udecfGVcf7fWz\nrMC2dLL06o6QuDjU1o5tgeBhtDAfE1kXTgh9COMOZBxuqFaUHh2o1daohS1r0jUP\nwUHDrLCsu0nDmusbHCViCuMWSR2XuuTAOK1BEP7urvXhwWAYsjU0PQKBgQCizdtq\nJEmdKNKYriqNSTU/9JUi+isCS/xRhRvEexjV1FRZciy69pg1PEa0qsZUh6FcE3Vl\nYmeBiBUAkxNtbH5BKFlfDd4nc8Hy30QUiAyx6enlQ5NEdX2H6YHaAEOIWf28T955\ntsA5oseLbrUoazGN8MzbT/cI6pCq3fNVD6+b/wKBgAyOIB3VrIUoUi7yI+35cJrm\nv17gZ3WovU2KekL+0Gq9LokN2GWI+/NkcPw7B++yOvvZ99A2jMcaqwdLVm65OyiK\nLngBcgPavycRZx0hNdGubMaAHsaVyuOD1qaRdTJnMboRvu2ey/kV3sM6tsC46f0x\nNGvaUek5pIIHO5ppUPJi\n-----END PRIVATE KEY-----\n",
+  "client_email": "garderobel@appspot.gserviceaccount.com",
+  "client_id": "112319342904659873088",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/garderobel%40appspot.gserviceaccount.com"
+}
