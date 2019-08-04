@@ -23,7 +23,7 @@ const db = admin.firestore(admin.initializeApp());
  * Returns an available hanger, or null if no hanger was found.
  * @param sectionRef The wardrobe section to search through.
  */
-async function findAvailableHanger(sectionRef: FirebaseFirestore.DocumentReference) {
+async function findAvailableHanger(sectionRef: FirebaseFirestore.DocumentReference): Promise<FirebaseFirestore.QueryDocumentSnapshot | null> {
     const hangers = await db.collection(sectionRef.path + `/hangers`)
         .where('state', "==", HangerState.AVAILABLE)
         .limit(1)
@@ -36,7 +36,7 @@ async function findAvailableHanger(sectionRef: FirebaseFirestore.DocumentReferen
  * Reserves a hanger.
  * @param ref Reference to the hanger that should be reserved.
  */
-function reserveHanger(ref: FirebaseFirestore.DocumentReference) {
+function reserveHanger(ref: FirebaseFirestore.DocumentReference): Promise<FirebaseFirestore.WriteResult> {
     const data = {'state': HangerState.TAKEN, 'stateUpdated': FieldValue.serverTimestamp()};
     return ref.update(data)
 }
@@ -47,7 +47,8 @@ function reserveHanger(ref: FirebaseFirestore.DocumentReference) {
  * Requests a check-out
  */
 export const requestCheckOut = onCall(async (data, context) => {
-    const ref = db.doc(`reservations/${data.reservation}`);
+    const reservation: string = data.reservation;
+    const ref = db.doc(`reservations/${reservation}`);
     const newData = {
         state: ReservationState.CHECKING_OUT,
         stateUpdated: FieldValue.serverTimestamp()
@@ -80,7 +81,8 @@ enum ReservationState { // noinspection JSUnusedGlobalSymbols
 
 // noinspection JSUnusedGlobalSymbols
 export const confirmCheckIn = onCall(async (data, context) => {
-    const ref = data.reservation;
+    const reservation: string = data.reservation;
+    const ref = db.doc(`reservations/${reservation}`);
     const payload = {
         checkIn: FieldValue.serverTimestamp(),
         stateUpdated: FieldValue.serverTimestamp(),
@@ -90,17 +92,43 @@ export const confirmCheckIn = onCall(async (data, context) => {
     return {writeTime: wr.writeTime};
 });
 
+export const confirmCheckOut = onCall(async (data, context) => {
+    const reservationRef = db.doc(`reservations/${data.reservation}`);
+    const reservation = await reservationRef.get();
+
+    const batch = db.batch();
+    const reservationData = {
+        checkOut: FieldValue.serverTimestamp(),
+        stateUpdated: FieldValue.serverTimestamp(),
+        state: ReservationState.CHECKED_OUT
+    };
+    batch.update(reservationRef, reservationData, {lastUpdateTime: reservation.updateTime});
+
+    const hangerRef = reservation.get('hanger');
+    const hangerData = {
+        state: HangerState.AVAILABLE,
+        stateUpdated: FieldValue.serverTimestamp()
+    };
+    batch.update(hangerRef, hangerData);
+    const wr = await batch.commit();
+    return {reservationUpdated: wr[0].writeTime, hangerUpdated: wr[1].writeTime}
+
+
+});
+
 async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot, venueRef: FirebaseFirestore.DocumentReference, context: functions.https.CallableContext, sectionRef: FirebaseFirestore.DocumentReference, wardrobeRef: FirebaseFirestore.DocumentReference) {
     const hangerName: string = await hanger.get('id');
     const venueName = (await venueRef.get()).get('name');
     const userId = getUser(context);
     const userRef = db.doc(`users/${userId}`);
+    const userName = (await userRef.get()).get('name');
 
     const reservationData = {
         section: sectionRef,
         hanger: hanger.ref,
         hangerName: hangerName,
         user: userRef,
+        userName: userName,
         venue: venueRef,
         venueName: venueName,
         wardrobe: wardrobeRef,
@@ -108,7 +136,7 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
         reservationTime: FieldValue.serverTimestamp()
     };
     const ref = await db.collection('reservations').add(reservationData);
-    return {reservation: ref};
+    return {reservation: ref.path};
 }
 
 // noinspection JSUnusedGlobalSymbols
