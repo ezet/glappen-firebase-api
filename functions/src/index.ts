@@ -1,12 +1,9 @@
 import * as functions from 'firebase-functions';
 import * as admin from "firebase-admin";
 import {CallableContext, HttpsError} from "firebase-functions/lib/providers/https";
+import Stripe = require("stripe");
 import FieldValue = admin.firestore.FieldValue;
-
-enum HangerState {
-    AVAILABLE,
-    TAKEN
-}
+import IPaymentIntent = Stripe.paymentIntents.IPaymentIntent;
 
 // @ts-ignore
 // noinspection JSUnusedLocalSymbols
@@ -15,47 +12,17 @@ const runtimeOpts = {
     memory: '128MB'
 };
 
-
 const db = admin.firestore(admin.initializeApp());
+const stripe = new Stripe('sk_test_ATY8QjLKqZMGA4DY64SaOhoe0091RWsvuT');
 
-/**
- * Finds an available hanger, if any.
- * Returns an available hanger, or null if no hanger was found.
- * @param sectionRef The wardrobe section to search through.
- */
-async function findAvailableHanger(sectionRef: FirebaseFirestore.DocumentReference): Promise<FirebaseFirestore.QueryDocumentSnapshot | null> {
-    const hangers = await db.collection(sectionRef.path + `/hangers`)
-        .where('state', "==", HangerState.AVAILABLE)
-        .limit(1)
-        .get();
-    return hangers.empty ? null : hangers.docs[0];
+enum HangerState {
+    AVAILABLE,
+    TAKEN
 }
 
-
-/**
- * Reserves a hanger.
- * @param ref Reference to the hanger that should be reserved.
- */
-function reserveHanger(ref: FirebaseFirestore.DocumentReference): Promise<FirebaseFirestore.WriteResult> {
-    const data = {'state': HangerState.TAKEN, 'stateUpdated': FieldValue.serverTimestamp()};
-    return ref.update(data)
+enum ReservationState { // noinspection JSUnusedGlobalSymbols
+    CHECK_IN_REJECTED, CHECKED_OUT, CHECKED_IN, CHECKING_OUT, CHECKING_IN
 }
-
-
-// noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
-/**
- * Requests a check-out
- */
-export const requestCheckOut = onCall(async (data, context) => {
-    const reservation: string = data.reservation;
-    const ref = db.doc(`reservations/${reservation}`);
-    const newData = {
-        state: ReservationState.CHECKING_OUT,
-        stateUpdated: FieldValue.serverTimestamp()
-    };
-    const wr = await ref.update(newData);
-    return {writeTime: wr.writeTime};
-});
 
 /**
  * Convenience function to create a https call function.
@@ -74,9 +41,20 @@ function getUser(context: CallableContext) {
     return context.auth === undefined ? 'UyasY6VeR4OY3R4Z3r2xFy9cASh2' : context.auth.uid;
 }
 
-enum ReservationState { // noinspection JSUnusedGlobalSymbols
-    CHECK_IN_REJECTED, CHECKED_OUT, CHECKED_IN, CHECKING_OUT, CHECKING_IN
-}
+// noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
+/**
+ * Requests a check-out
+ */
+export const requestCheckOut = onCall(async (data, context) => {
+    const reservation: string = data.reservation;
+    const ref = db.doc(`reservations/${reservation}`);
+    const newData = {
+        state: ReservationState.CHECKING_OUT,
+        stateUpdated: FieldValue.serverTimestamp()
+    };
+    const wr = await ref.update(newData);
+    return {writeTime: wr.writeTime};
+});
 
 
 // noinspection JSUnusedGlobalSymbols
@@ -90,6 +68,37 @@ export const confirmCheckIn = onCall(async (data, context) => {
     };
     const wr = await ref.update(payload);
     return {writeTime: wr.writeTime};
+});
+
+export const requestPaymentIntent = onCall(async (data, context) => {
+    let intent: IPaymentIntent;
+    if (data.paymentMethodId !== undefined) {
+        const paymentMethodId = data.paymentMethodId;
+        intent = await stripe.paymentIntents.create({
+            payment_method: paymentMethodId,
+            amount: 2500,
+            currency: 'nok',
+            payment_method_types: ['card'],
+            confirmation_method: "manual",
+            confirm: true,
+            customer: 'cus_FXX6ahUoQ3Eqb7',
+            return_url: 'https://www.vg.no',
+        });
+    } else if (data.paymentIntentId !== undefined) {
+        intent = await stripe.paymentIntents.confirm(data.paymentIntentId);
+    } else {
+        return {}
+    }
+    if (intent.status === "requires_action") {
+        console.log(intent.next_action);
+        return {requiresAction: true, action: intent.next_action, paymentIntentClientSecret: intent.client_secret}
+    } else if (intent.status === "succeeded") {
+        return {success: true};
+    } else {
+        console.error(intent.status);
+        console.error(intent.last_payment_error);
+        return {error: intent.status};
+    }
 });
 
 export const confirmCheckOut = onCall(async (data, context) => {
@@ -157,6 +166,29 @@ export const requestCheckIn = onCall(async (data, context) => {
     await reserveHanger(hanger.ref);
     return await createReservation(hanger, venueRef, context, sectionRef, wardrobeRef);
 });
+
+/**
+ * Reserves a hanger.
+ * @param ref Reference to the hanger that should be reserved.
+ */
+function reserveHanger(ref: FirebaseFirestore.DocumentReference): Promise<FirebaseFirestore.WriteResult> {
+    const data = {'state': HangerState.TAKEN, 'stateUpdated': FieldValue.serverTimestamp()};
+    return ref.update(data)
+}
+
+/**
+ * Finds an available hanger, if any.
+ * Returns an available hanger, or null if no hanger was found.
+ * @param sectionRef The wardrobe section to search through.
+ */
+async function findAvailableHanger(sectionRef: FirebaseFirestore.DocumentReference): Promise<FirebaseFirestore.QueryDocumentSnapshot | null> {
+    const hangers = await db.collection(sectionRef.path + `/hangers`)
+        .where('state', "==", HangerState.AVAILABLE)
+        .limit(1)
+        .get();
+    return hangers.empty ? null : hangers.docs[0];
+}
+
 
 class QrCode {
     constructor(public venueId: string, public wardrobeId: string, public sectionId: string) {
