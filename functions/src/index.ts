@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import * as firebase_admin from "firebase-admin";
 import {CallableContext, HttpsError} from "firebase-functions/lib/providers/https";
 import * as logging from '@google-cloud/logging';
+// tslint:disable-next-line:no-implicit-dependencies
 import {Error} from "tslint/lib/error";
 import Stripe = require("stripe");
 import FieldValue = firebase_admin.firestore.FieldValue;
@@ -14,10 +15,11 @@ const runtimeOpts = {
     memory: '128MB'
 };
 
+// @ts-ignore
 const logger = new logging.Logging();
 const admin = firebase_admin.initializeApp();
 const db = admin.firestore();
-const stripe = new Stripe('sk_test_ATY8QjLKqZMGA4DY64SaOhoe0091RWsvuT');
+const stripe = new Stripe(functions.config().stripe.test.secret_key);
 
 enum HangerState {
     AVAILABLE,
