@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import * as firebase_admin from "firebase-admin";
 import {CallableContext, HttpsError} from "firebase-functions/lib/providers/https";
 import * as logging from '@google-cloud/logging';
+import {Error} from "tslint/lib/error";
 import Stripe = require("stripe");
 import FieldValue = firebase_admin.firestore.FieldValue;
 import IPaymentIntent = Stripe.paymentIntents.IPaymentIntent;
@@ -44,6 +45,9 @@ function getUser(context: CallableContext) {
     return context.auth === undefined ? 'UyasY6VeR4OY3R4Z3r2xFy9cASh2' : context.auth.uid;
 }
 
+/**
+ * When a new user is created, create and attach a stripe customer
+ */
 export const createStripeCustomer = functions.auth.user().onCreate(async (user, context) => {
     const customer = await stripe.customers.create({
         name: user.displayName,
@@ -51,8 +55,21 @@ export const createStripeCustomer = functions.auth.user().onCreate(async (user, 
         phone: user.phoneNumber,
         metadata: {uid: user.uid}
     });
-    await admin.auth().setCustomUserClaims(user.uid, {stripe_customer_id: customer.id});
+    await admin.auth().setCustomUserClaims(user.uid, {stripe_id: customer.id});
     return {}
+});
+
+/**
+ * When a user is deleted, delete any attaches stripe customers
+ */
+export const cleanupStripeCustomer = functions.auth.user().onDelete(async (user, context) => {
+    const claims = user.customClaims !== undefined ? user.customClaims : {};
+    if ('stripe_id' in claims) {
+        // @ts-ignore
+        await stripe.customers.del(claims.stripe_id);
+    } else {
+        console.error((new Error(`Unable to clean up stripe customer for user ${user.uid}. Claims: ${claims.toString()}`)))
+    }
 });
 
 // noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
