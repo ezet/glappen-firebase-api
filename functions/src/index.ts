@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from "firebase-admin";
 import {CallableContext, HttpsError} from "firebase-functions/lib/providers/https";
+import * as logging from '@google-cloud/logging';
 import Stripe = require("stripe");
 import FieldValue = admin.firestore.FieldValue;
 import IPaymentIntent = Stripe.paymentIntents.IPaymentIntent;
@@ -12,6 +13,7 @@ const runtimeOpts = {
     memory: '128MB'
 };
 
+const logger = new logging.Logging();
 const db = admin.firestore(admin.initializeApp());
 const stripe = new Stripe('sk_test_ATY8QjLKqZMGA4DY64SaOhoe0091RWsvuT');
 
