@@ -1,9 +1,9 @@
 import * as functions from 'firebase-functions';
-import * as admin from "firebase-admin";
+import * as firebase_admin from "firebase-admin";
 import {CallableContext, HttpsError} from "firebase-functions/lib/providers/https";
 import * as logging from '@google-cloud/logging';
 import Stripe = require("stripe");
-import FieldValue = admin.firestore.FieldValue;
+import FieldValue = firebase_admin.firestore.FieldValue;
 import IPaymentIntent = Stripe.paymentIntents.IPaymentIntent;
 
 // @ts-ignore
@@ -14,7 +14,8 @@ const runtimeOpts = {
 };
 
 const logger = new logging.Logging();
-const db = admin.firestore(admin.initializeApp());
+const admin = firebase_admin.initializeApp();
+const db = admin.firestore();
 const stripe = new Stripe('sk_test_ATY8QjLKqZMGA4DY64SaOhoe0091RWsvuT');
 
 enum HangerState {
@@ -42,6 +43,17 @@ function getUser(context: CallableContext) {
     // context.auth is undefined when running in the emulator, provide a default uid
     return context.auth === undefined ? 'UyasY6VeR4OY3R4Z3r2xFy9cASh2' : context.auth.uid;
 }
+
+export const createStripeCustomer = functions.auth.user().onCreate(async (user, context) => {
+    const customer = await stripe.customers.create({
+        name: user.displayName,
+        email: user.email,
+        phone: user.phoneNumber,
+        metadata: {uid: user.uid}
+    });
+    await admin.auth().setCustomUserClaims(user.uid, {stripe_customer_id: customer.id});
+    return {}
+});
 
 // noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
 /**
