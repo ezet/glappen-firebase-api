@@ -76,13 +76,13 @@ export const createStripeCustomer = functions.auth.user().onCreate(async (user, 
  * When a user is deleted, delete any attaches stripe customers
  */
 export const cleanupStripeCustomer = functions.auth.user().onDelete(async (user, context) => {
-    const claims = user.customClaims !== undefined ? user.customClaims : {};
-    if ('stripe_id' in claims) {
-        // @ts-ignore
-        await stripe.customers.del(claims.stripe_id);
+    const snapshot = await admin.firestore().collection('users').doc(user.uid).get();
+    const stripeId = snapshot.get('stripeId');
+    if (typeof stripeId === "string") {
+        await stripe.customers.del(stripeId);
     } else {
         // noinspection TypeScriptUnresolvedFunction
-        console.error((new Error(`Unable to clean up stripe customer for user ${user.uid}. Claims: ${claims.toString()}`)))
+        console.error((new Error(`Unable to find and delete stripe ID for user ${user.uid}.}`)))
     }
 });
 
