@@ -2,8 +2,6 @@ import * as functions from 'firebase-functions';
 import * as firebase_admin from "firebase-admin";
 import {CallableContext, HttpsError} from "firebase-functions/lib/providers/https";
 import * as logging from '@google-cloud/logging';
-// tslint:disable-next-line:no-implicit-dependencies
-import {Error} from "tslint/lib/error";
 import Stripe = require("stripe");
 import FieldValue = firebase_admin.firestore.FieldValue;
 import IPaymentIntent = Stripe.paymentIntents.IPaymentIntent;
@@ -27,7 +25,11 @@ enum HangerState {
 }
 
 enum ReservationState { // noinspection JSUnusedGlobalSymbols
-    CHECK_IN_REJECTED, CHECKED_OUT, CHECKED_IN, CHECKING_OUT, CHECKING_IN
+    CHECK_IN_REJECTED, CHECKED_OUT, CHECKED_IN, CHECKING_OUT, CHECKING_IN,
+}
+
+enum PaymentStatus {
+    REFUNDED = -2, CANCELED = -1, INITIAL = 0, RESERVED = 1, CAPTURED = 2,
 }
 
 /**
@@ -42,11 +44,12 @@ function onCall(handler: (data: any, context: functions.https.CallableContext) =
  * Gets the firebase UID of the user who invoked the function.
  * @param context
  */
-function getUser(context: CallableContext) {
+function getRequestingUserId(context: CallableContext) {
     // context.auth is undefined when running in the emulator, provide a default uid
     return context.auth === undefined ? 'UyasY6VeR4OY3R4Z3r2xFy9cASh2' : context.auth.uid;
 }
 
+// noinspection JSUnusedGlobalSymbols
 /**
  * When a new user is created, create and attach a stripe customer
  */
@@ -61,6 +64,7 @@ export const createStripeCustomer = functions.auth.user().onCreate(async (user, 
     return {}
 });
 
+// noinspection JSUnusedGlobalSymbols
 /**
  * When a user is deleted, delete any attaches stripe customers
  */
@@ -70,6 +74,7 @@ export const cleanupStripeCustomer = functions.auth.user().onDelete(async (user,
         // @ts-ignore
         await stripe.customers.del(claims.stripe_id);
     } else {
+        // noinspection TypeScriptUnresolvedFunction
         console.error((new Error(`Unable to clean up stripe customer for user ${user.uid}. Claims: ${claims.toString()}`)))
     }
 });
@@ -158,10 +163,10 @@ export const confirmCheckOut = onCall(async (data, context) => {
 
 });
 
-async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot, venueRef: FirebaseFirestore.DocumentReference, context: functions.https.CallableContext, sectionRef: FirebaseFirestore.DocumentReference, wardrobeRef: FirebaseFirestore.DocumentReference) {
+async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot, venueRef: FirebaseFirestore.DocumentReference, context: CallableContext, sectionRef: FirebaseFirestore.DocumentReference, wardrobeRef: FirebaseFirestore.DocumentReference, paymentIntentId: string, paymentStatus: PaymentStatus) {
     const hangerName: string = await hanger.get('id');
     const venueName = (await venueRef.get()).get('name');
-    const userId = getUser(context);
+    const userId = getRequestingUserId(context);
     const userRef = db.doc(`users/${userId}`);
     const userName = (await userRef.get()).get('name');
 
@@ -175,10 +180,46 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
         venueName: venueName,
         wardrobe: wardrobeRef,
         state: ReservationState.CHECKING_IN,
-        reservationTime: FieldValue.serverTimestamp()
+        reservationTime: FieldValue.serverTimestamp(),
+        paymentIntent: paymentIntentId,
+        paymentStatus: paymentStatus
     };
-    const ref = await db.collection('reservations').add(reservationData);
-    return {reservation: ref.path};
+    return await db.collection('reservations').add(reservationData)
+}
+
+/**
+ * Confirm an existing reservation after 3ds authentication or with a different payment method.
+ */
+export const confirmPayment = onCall(async (data, context) => {
+    const paymentIntentId = data.paymentIntentId;
+    const paymentData = 'paymentMethodId' in data ? {payment_method: data.paymentIntentId} : {};
+    const intent = await stripe.paymentIntents.confirm(paymentIntentId, paymentData);
+
+    const snapshot = await admin.firestore().collectionGroup('reservations').where('paymentIntent', "==", paymentIntentId).limit(1).get();
+    const reservation = snapshot.docs[0];
+    const status = intentToStatus(intent);
+    await reservation.ref.update('paymentStatus', status);
+    return {status: intent.status, action: intent.next_action, paymentIntentClientSecret: intent.client_secret}
+});
+
+function intentToStatus(intent: IPaymentIntent) {
+    if (intent.status === "succeeded") {
+        return PaymentStatus.CAPTURED
+    } else if (intent.status === "requires_capture") {
+        return PaymentStatus.RESERVED
+    } else if (intent.status === "requires_action") {
+        return PaymentStatus.INITIAL
+    } else if (intent.status === "requires_payment_method") {
+        return PaymentStatus.INITIAL
+    } else if (intent.status === "canceled") {
+        return PaymentStatus.CANCELED
+    } else if (intent.status === "processing") {
+        console.error(intent.status);
+        return PaymentStatus.INITIAL
+    } else if (intent.status === "requires_confirmation") {
+        return PaymentStatus.INITIAL
+    }
+    return PaymentStatus.INITIAL
 }
 
 // noinspection JSUnusedGlobalSymbols
@@ -189,15 +230,47 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
  * Returns 'resource-exhausted' if there are no available hangers.
  */
 export const requestCheckIn = onCall(async (data, context) => {
+
+    // TODO: validate input
     const code = tokenize(data.code);
+    const paymentMethodId = data.paymentMethodId;
+    const userId = getRequestingUserId(context);
+
     const venueRef = db.doc(`/venues/${code.venueId}`);
     const wardrobeRef = db.doc(venueRef.path + `/wardrobes/${code.wardrobeId}`);
     const sectionRef = db.doc(wardrobeRef.path + `/sections/${code.sectionId}`);
+
+    // TODO: BEGIN transaction
     const hanger = await findAvailableHanger(sectionRef);
     if (hanger === null) throw new HttpsError("resource-exhausted", "no hangers available", sectionRef.path);
-    // TODO: wrap in transaction
     await reserveHanger(hanger.ref);
-    return await createReservation(hanger, venueRef, context, sectionRef, wardrobeRef);
+    // END transaction
+
+    const user = await admin.firestore().collection('users').doc(userId).get();
+    const customer_id = user.get('stripe_id');
+    const user_email = user.get('email');
+
+    // TODO: get amount from section
+    // TODO: add statement descriptor
+    // TODO: set description
+    // TODO: set metadata to reservation ID
+    // TODO: set transfer_data and application_fee
+    const intent = await stripe.paymentIntents.create({
+        customer: customer_id,
+        payment_method: paymentMethodId,
+        confirmation_method: "manual",
+        amount: 2500,
+        confirm: true,
+        capture_method: "manual",
+        currency: 'NOK',
+        receipt_email: user_email,
+        payment_method_types: ['card'],
+        setup_future_usage: "on_session"
+    });
+
+    const paymentStatus = intentToStatus(intent);
+    await createReservation(hanger, venueRef, context, sectionRef, wardrobeRef, intent.id, paymentStatus);
+    return {status: intent.status, action: intent.next_action, paymentIntentClientSecret: intent.client_secret}
 });
 
 /**
@@ -233,3 +306,35 @@ function tokenize(code: string) {
     // TODO: return the real values
     return new QrCode("aaXt3hxtb5tf8aTz1BNp", "E8blVz5KBFZoLOTLJGf1", "vnEpTisjoygX3UJFaMy2");
 }
+
+// @ts-ignore
+async function reportError(err, context = {}): Promise<LogWriteResponse> {
+    // This is the name of the StackDriver log stream that will receive the log
+    // entry. This name can be any valid log stream name, but must contain "err"
+    // in order for the error to be picked up by StackDriver Error Reporting.
+    const logName = 'errors';
+    const log = logger.log(logName);
+
+    // https://cloud.google.com/logging/docs/api/ref_v2beta1/rest/v2beta1/MonitoredResource
+    const meta = {
+        resource: {
+            type: 'cloud_functions', labels: {
+                // @ts-ignore
+                'function_name': process.env.FUNCTION_NAME.toString()
+            }
+        }
+    };
+
+    // https://cloud.google.com/error-reporting/reference/rest/v1beta1/ErrorEvent
+    const errorEvent = {
+        message: err.stack,
+        serviceContext: {
+            service: process.env.FUNCTION_NAME,
+            resourceType: 'cloud_function',
+        },
+        context: context,
+    };
+
+    return log.write(log.entry(meta, errorEvent));
+}
+
