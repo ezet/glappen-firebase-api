@@ -60,8 +60,15 @@ export const createStripeCustomer = functions.auth.user().onCreate(async (user, 
         phone: user.phoneNumber,
         metadata: {uid: user.uid}
     });
-    await admin.auth().setCustomUserClaims(user.uid, {stripe_id: customer.id});
-    return {}
+    // await admin.auth().setCustomUserClaims(user.uid, {stripe_id: customer.id});
+    // TODO: use data from login provider
+    return admin.firestore().collection('users').doc(user.uid).set({
+        stripeId: customer.id,
+        name: user.displayName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        photoUrl: user.photoURL
+    }, {merge: true});
 });
 
 // noinspection JSUnusedGlobalSymbols
@@ -108,37 +115,7 @@ export const confirmCheckIn = onCall(async (data, context) => {
     return {writeTime: wr.writeTime};
 });
 
-export const requestPaymentIntent = onCall(async (data, context) => {
-    let intent: IPaymentIntent;
-    if (data.paymentMethodId !== undefined) {
-        const paymentMethodId = data.paymentMethodId;
-        intent = await stripe.paymentIntents.create({
-            payment_method: paymentMethodId,
-            amount: 2500,
-            currency: 'nok',
-            payment_method_types: ['card'],
-            confirmation_method: "manual",
-            confirm: true,
-            customer: 'cus_FXX6ahUoQ3Eqb7',
-            return_url: 'https://www.vg.no',
-        });
-    } else if (data.paymentIntentId !== undefined) {
-        intent = await stripe.paymentIntents.confirm(data.paymentIntentId);
-    } else {
-        return {}
-    }
-    if (intent.status === "requires_action") {
-        console.log(intent.next_action);
-        return {requiresAction: true, action: intent.next_action, paymentIntentClientSecret: intent.client_secret}
-    } else if (intent.status === "succeeded") {
-        return {success: true};
-    } else {
-        console.error(intent.status);
-        console.error(intent.last_payment_error);
-        return {error: intent.status};
-    }
-});
-
+// noinspection JSUnusedGlobalSymbols
 export const confirmCheckOut = onCall(async (data, context) => {
     const reservationRef = db.doc(`reservations/${data.reservation}`);
     const reservation = await reservationRef.get();
@@ -187,6 +164,7 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
     return await db.collection('reservations').add(reservationData)
 }
 
+// noinspection JSUnusedGlobalSymbols
 /**
  * Confirm an existing reservation after 3ds authentication or with a different payment method.
  */
