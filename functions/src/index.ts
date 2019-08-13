@@ -241,6 +241,7 @@ export const requestCheckIn = onCall(async (data, context) => {
         confirm: true,
         capture_method: "manual",
         currency: 'NOK',
+        return_url: "https://www.google.com",
         receipt_email: user_email,
         payment_method_types: ['card'],
         setup_future_usage: "on_session"
@@ -248,7 +249,7 @@ export const requestCheckIn = onCall(async (data, context) => {
 
     const paymentStatus = intentToStatus(intent);
     await createReservation(hanger, venueRef, context, sectionRef, wardrobeRef, intent.id, paymentStatus);
-    return {status: intent.status, action: intent.next_action, paymentIntentClientSecret: intent.client_secret}
+    return {status: intent.status, action: intent.next_action}
 });
 
 /**
