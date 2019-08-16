@@ -15,14 +15,14 @@
   "main": "lib/index.js",
   "dependencies": {
     "@google-cloud/logging": "^5.2.1",
+    "firebase-admin": "^8.3.0",
     "firebase-app": "^0.0.1",
-    "firebase-admin": "~8.3.0",
     "firebase-functions": "^3.2.0",
-    "stripe": "latest",
-    "@types/node": "^12.7.1"
+    "stripe": "^7.8.0"
   },
   "devDependencies": {
     "@types/stripe": "^6.31.13",
+    "@types/node": "^12.7.1",
     "firebase-functions-test": "^0.1.6",
     "tslint": "^5.12.0",
     "typescript": "^3.2.2",
