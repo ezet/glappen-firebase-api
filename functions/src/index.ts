@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as firebase_admin from "firebase-admin";
-import { CallableContext, HttpsError } from "firebase-functions/lib/providers/https";
+import {CallableContext, HttpsError} from "firebase-functions/lib/providers/https";
 import * as logging from '@google-cloud/logging';
 import Stripe = require("stripe");
 import FieldValue = firebase_admin.firestore.FieldValue;
@@ -11,7 +11,6 @@ const runtimeOpts = {
     // timeoutSeconds: 300,
     memory: '128MB'
 };
-
 
 
 // @ts-ignore
@@ -52,11 +51,11 @@ function getRequestingUserId(context: CallableContext) {
 
 // noinspection JSUnusedGlobalSymbols
 async function getUserCustomerId(userId: string): Promise<string | null> {
-    const user = await admin.auth().getUser(userId)
+    const user = await admin.auth().getUser(userId);
     if (user.customClaims && user.customClaims.hasOwnProperty('stripeId')) {
         return (user.customClaims as any).stripeId
     } else {
-        console.error(Error(`Missing customClaims.stripeID for user: ${user.uid}`))
+        console.error(Error(`Missing customClaims.stripeID for user: ${user.uid}`));
         return null
     }
 }
@@ -65,15 +64,19 @@ async function getUserCustomerId(userId: string): Promise<string | null> {
  * Create ephemeral key
  */
 export const getEphemeralKey = onCall(async (data, context) => {
-    const apiVersion = data.apiVersion;
+    const apiVersion = data.stripeversion;
     const customerId = await getUserCustomerId(getRequestingUserId(context));
+    console.log(apiVersion);
     if (customerId === null) {
         throw new functions.https.HttpsError('failed-precondition', "User has no Stripe ID");
     }
-    const key = stripe.ephemeralKeys.create(
-        { customer: customerId },
-        { stripe_version: apiVersion });
-    return { key: key }
+    if (apiVersion === undefined) {
+        throw new functions.https.HttpsError('invalid-argument', "stripe_version must be specified to create an ephemeral key");
+    }
+    const key = await stripe.ephemeralKeys.create(
+        {customer: customerId},
+        {stripe_version: apiVersion});
+    return {key: key}
 });
 
 // noinspection JSUnusedGlobalSymbols
@@ -85,9 +88,9 @@ export const createStripeCustomer = functions.auth.user().onCreate(async (user, 
         name: user.displayName,
         email: user.email,
         phone: user.phoneNumber,
-        metadata: { uid: user.uid }
+        metadata: {uid: user.uid}
     });
-    await admin.auth().setCustomUserClaims(user.uid, { stripeId: customer.id });
+    await admin.auth().setCustomUserClaims(user.uid, {stripeId: customer.id});
     // TODO: use data from login provider
     return admin.firestore().collection('users').doc(user.uid).set({
         stripeId: customer.id,
@@ -95,7 +98,7 @@ export const createStripeCustomer = functions.auth.user().onCreate(async (user, 
         email: user.email,
         phoneNumber: user.phoneNumber,
         photoUrl: user.photoURL
-    }, { merge: true });
+    }, {merge: true});
 });
 
 // noinspection JSUnusedGlobalSymbols
@@ -123,7 +126,7 @@ export const requestCheckOut = onCall(async (data, context) => {
         stateUpdated: FieldValue.serverTimestamp()
     };
     const wr = await ref.update(newData);
-    return { writeTime: wr.writeTime };
+    return {writeTime: wr.writeTime};
 });
 
 
@@ -137,7 +140,7 @@ export const confirmCheckIn = onCall(async (data, context) => {
         state: ReservationState.CHECKED_IN
     };
     const wr = await ref.update(payload);
-    return { writeTime: wr.writeTime };
+    return {writeTime: wr.writeTime};
 });
 
 // noinspection JSUnusedGlobalSymbols
@@ -151,7 +154,7 @@ export const confirmCheckOut = onCall(async (data, context) => {
         stateUpdated: FieldValue.serverTimestamp(),
         state: ReservationState.CHECKED_OUT
     };
-    batch.update(reservationRef, reservationData, { lastUpdateTime: reservation.updateTime });
+    batch.update(reservationRef, reservationData, {lastUpdateTime: reservation.updateTime});
 
     const hangerRef = reservation.get('hanger');
     const hangerData = {
@@ -160,7 +163,7 @@ export const confirmCheckOut = onCall(async (data, context) => {
     };
     batch.update(hangerRef, hangerData);
     const wr = await batch.commit();
-    return { reservationUpdated: wr[0].writeTime, hangerUpdated: wr[1].writeTime }
+    return {reservationUpdated: wr[0].writeTime, hangerUpdated: wr[1].writeTime}
 
 
 });
@@ -194,15 +197,13 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
  * Confirm an existing reservation after 3ds authentication or with a different payment method.
  */
 export const confirmPayment = onCall(async (data, context) => {
-    const paymentIntentId = data.paymentIntentId;
-    const paymentData = 'paymentMethodId' in data ? { payment_method: data.paymentIntentId } : {};
+    const reservation = await admin.firestore().collection('reservations').doc(data.reservation).get();
+    const paymentIntentId = reservation.get('paymentIntent');
+    const paymentData = 'paymentMethodId' in data ? {payment_method: data.paymentIntentId} : {};
     const intent = await stripe.paymentIntents.confirm(paymentIntentId, paymentData);
-
-    const snapshot = await admin.firestore().collectionGroup('reservations').where('paymentIntent', "==", paymentIntentId).limit(1).get();
-    const reservation = snapshot.docs[0];
     const status = intentToStatus(intent);
     await reservation.ref.update('paymentStatus', status);
-    return { status: intent.status, action: intent.next_action, paymentIntentClientSecret: intent.client_secret }
+    return {status: intent.status, nextAction: intent.next_action, clientSecret: intent.client_secret}
 });
 
 function intentToStatus(intent: IPaymentIntent) {
@@ -252,6 +253,7 @@ export const requestCheckIn = onCall(async (data, context) => {
     const user = await admin.firestore().collection('users').doc(userId).get();
     const customer_id = user.get('stripe_id');
     const user_email = user.get('email');
+    const returnUrl = data.returnUrl;
 
     // TODO: get amount from section
     // TODO: add statement descriptor
@@ -266,15 +268,15 @@ export const requestCheckIn = onCall(async (data, context) => {
         confirm: true,
         capture_method: "manual",
         currency: 'NOK',
-        return_url: "https://www.google.com",
+        return_url: returnUrl,
         receipt_email: user_email,
         payment_method_types: ['card'],
         setup_future_usage: "on_session"
     });
 
     const paymentStatus = intentToStatus(intent);
-    await createReservation(hanger, venueRef, context, sectionRef, wardrobeRef, intent.id, paymentStatus);
-    return { status: intent.status, action: intent.next_action }
+    const ref = await createReservation(hanger, venueRef, context, sectionRef, wardrobeRef, intent.id, paymentStatus);
+    return {status: intent.status, nextAction: intent.next_action, clientSecret: intent.client_secret, id: ref.id}
 });
 
 /**
@@ -282,7 +284,7 @@ export const requestCheckIn = onCall(async (data, context) => {
  * @param ref Reference to the hanger that should be reserved.
  */
 function reserveHanger(ref: FirebaseFirestore.DocumentReference): Promise<FirebaseFirestore.WriteResult> {
-    const data = { 'state': HangerState.TAKEN, 'stateUpdated': FieldValue.serverTimestamp() };
+    const data = {'state': HangerState.TAKEN, 'stateUpdated': FieldValue.serverTimestamp()};
     return ref.update(data)
 }
 
