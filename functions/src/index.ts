@@ -174,6 +174,9 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
     const userId = getRequestingUserId(context);
     const userRef = db.doc(`users/${userId}`);
     const userName = (await userRef.get()).get('name');
+    const wardrobe = await wardrobeRef.get();
+    const wardrobeName = (wardrobe).get('name');
+    const color = (wardrobe).get('color');
 
     const reservationData = {
         section: sectionRef,
@@ -184,6 +187,8 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
         venue: venueRef,
         venueName: venueName,
         wardrobe: wardrobeRef,
+        wardrobeName: wardrobeName,
+        color: color,
         state: ReservationState.CHECKING_IN,
         reservationTime: FieldValue.serverTimestamp(),
         paymentIntent: paymentIntentId,
