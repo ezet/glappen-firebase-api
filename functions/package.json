@@ -21,12 +21,12 @@
     "stripe": "^7.8.0"
   },
   "devDependencies": {
-    "@types/stripe": "^6.31.13",
-    "@types/node": "^12.7.1",
+    "@firebase/app-types": "^0.4.3",
+    "@types/node": "^12.7.2",
+    "@types/stripe": "^6.31.17",
     "firebase-functions-test": "^0.1.6",
     "tslint": "^5.12.0",
-    "typescript": "^3.2.2",
-    "@firebase/app-types": "^0.4.3"
+    "typescript": "^3.2.2"
   },
   "private": true
 }
