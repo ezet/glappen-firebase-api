@@ -126,7 +126,7 @@ export const getEphemeralKey = onCall(async (data, context) => {
 /**
  * When a new user is created, create and attach a stripe customer
  */
-export const createStripeCustomer = functions.runWith({ memory: memory }).region(region).auth.user().onCreate(async (user, context) => {
+export const setupUser = functions.runWith({ memory: memory }).region(region).auth.user().onCreate(async (user, context) => {
     if (user.customClaims && user.customClaims.hasOwnProperty('stripeId')) {
         console.log("User is already connected to a stripe customer. Exiting.")
         return
@@ -153,7 +153,8 @@ export const createStripeCustomer = functions.runWith({ memory: memory }).region
 /**
  * When a user is deleted, delete any attaches stripe customers
  */
-export const cleanupStripeCustomer = functions.runWith({ memory: memory }).region(region).auth.user().onDelete(async (user, context) => {
+export const cleanupUser = functions.runWith({ memory: memory }).region(region).auth.user().onDelete(async (user, context) => {
+    await admin.firestore().collection('users').doc(user.uid).delete();
     const stripeId = await getStripeCustomerIdForUser(user);
     if (stripeId !== null) {
         await stripe.customers.del(stripeId);
@@ -300,7 +301,7 @@ export const requestCheckIn = onCall(async (data, context) => {
     // END transaction
 
     const user = await admin.firestore().collection('users').doc(userId).get();
-    const customer_id = user.get('stripe_id');
+    const customer_id = user.get('stripeId');
     const user_email = user.get('email');
     const returnUrl = data.returnUrl;
 
