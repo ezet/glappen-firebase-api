@@ -22,7 +22,7 @@ enum HangerState {
 }
 
 enum ReservationState { // noinspection JSUnusedGlobalSymbols
-    CHECK_IN_REJECTED, CHECKED_OUT, CHECKED_IN, CHECKING_OUT, CHECKING_IN,
+    INITIAL, PAYMENT_METHOD_REQUIRED, PAYMENT_AUTH_REQUIRED, PAYMENT_RESERVED, CHECKED_IN, LOST, CHECKING_OUT, CHECKED_OUT
 }
 
 enum PaymentStatus {
@@ -163,118 +163,6 @@ export const cleanupUser = functions.runWith({ memory: memory }).region(region).
     }
 });
 
-// noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
-/**
- * Requests a check-out
- */
-export const requestCheckOut = onCall(async (data, context) => {
-    const reservation: string = data.reservation;
-    const ref = db.doc(`reservations/${reservation}`);
-    const newData = {
-        state: ReservationState.CHECKING_OUT,
-        stateUpdated: FieldValue.serverTimestamp()
-    };
-    const wr = await ref.update(newData);
-    return { writeTime: wr.writeTime };
-});
-
-
-// noinspection JSUnusedGlobalSymbols
-export const confirmCheckIn = onCall(async (data, context) => {
-    const reservation: string = data.reservation;
-    const ref = db.doc(`reservations/${reservation}`);
-    const payload = {
-        checkIn: FieldValue.serverTimestamp(),
-        stateUpdated: FieldValue.serverTimestamp(),
-        state: ReservationState.CHECKED_IN
-    };
-    const wr = await ref.update(payload);
-    return { writeTime: wr.writeTime };
-});
-
-// noinspection JSUnusedGlobalSymbols
-export const confirmCheckOut = onCall(async (data, context) => {
-    const reservationRef = db.doc(`reservations/${data.reservation}`);
-    const reservation = await reservationRef.get();
-
-    const batch = db.batch();
-    const reservationData = {
-        checkOut: FieldValue.serverTimestamp(),
-        stateUpdated: FieldValue.serverTimestamp(),
-        state: ReservationState.CHECKED_OUT
-    };
-    batch.update(reservationRef, reservationData, { lastUpdateTime: reservation.updateTime });
-
-    const hangerRef = reservation.get('hanger');
-    const hangerData = {
-        state: HangerState.AVAILABLE,
-        stateUpdated: FieldValue.serverTimestamp()
-    };
-    batch.update(hangerRef, hangerData);
-    const wr = await batch.commit();
-    return { reservationUpdated: wr[0].writeTime, hangerUpdated: wr[1].writeTime }
-
-
-});
-
-
-async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot, venueRef: FirebaseFirestore.DocumentReference, context: CallableContext, sectionRef: FirebaseFirestore.DocumentReference, wardrobeRef: FirebaseFirestore.DocumentReference, paymentIntentId: string, paymentStatus: PaymentStatus) {
-    const hangerName: string = await hanger.get('id');
-    const venueName = (await venueRef.get()).get('name');
-    const userId = getRequestingUserId(context);
-    const userRef = db.doc(`users/${userId}`);
-    const userName = (await userRef.get()).get('name');
-
-    const reservationData = {
-        section: sectionRef,
-        hanger: hanger.ref,
-        hangerName: hangerName,
-        user: userRef,
-        userName: userName,
-        venue: venueRef,
-        venueName: venueName,
-        wardrobe: wardrobeRef,
-        state: ReservationState.CHECKING_IN,
-        reservationTime: FieldValue.serverTimestamp(),
-        paymentIntent: paymentIntentId,
-        paymentStatus: paymentStatus
-    };
-    return await db.collection('reservations').add(reservationData)
-}
-
-// noinspection JSUnusedGlobalSymbols
-/**
- * Confirm an existing reservation after 3ds authentication or with a different payment method.
- */
-export const confirmPayment = onCall(async (data, context) => {
-    const reservation = await admin.firestore().collection('reservations').doc(data.reservation).get();
-    const paymentIntentId = reservation.get('paymentIntent');
-    const paymentData = 'paymentMethodId' in data ? { payment_method: data.paymentIntentId } : {};
-    const intent = await stripe.paymentIntents.confirm(paymentIntentId, paymentData);
-    const status = intentToStatus(intent);
-    await reservation.ref.update('paymentStatus', status);
-    return { status: intent.status, nextAction: intent.next_action, clientSecret: intent.client_secret }
-});
-
-function intentToStatus(intent: IPaymentIntent) {
-    if (intent.status === "succeeded") {
-        return PaymentStatus.CAPTURED
-    } else if (intent.status === "requires_capture") {
-        return PaymentStatus.RESERVED
-    } else if (intent.status === "requires_action") {
-        return PaymentStatus.INITIAL
-    } else if (intent.status === "requires_payment_method") {
-        return PaymentStatus.INITIAL
-    } else if (intent.status === "canceled") {
-        return PaymentStatus.CANCELED
-    } else if (intent.status === "processing") {
-        console.error(intent.status);
-        return PaymentStatus.INITIAL
-    } else if (intent.status === "requires_confirmation") {
-        return PaymentStatus.INITIAL
-    }
-    return PaymentStatus.INITIAL
-}
 
 // noinspection JSUnusedGlobalSymbols
 /**
@@ -329,6 +217,33 @@ export const requestCheckIn = onCall(async (data, context) => {
     return { status: intent.status, nextAction: intent.next_action, clientSecret: intent.client_secret, id: ref.id }
 });
 
+
+async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot, venueRef: FirebaseFirestore.DocumentReference, context: CallableContext, sectionRef: FirebaseFirestore.DocumentReference, wardrobeRef: FirebaseFirestore.DocumentReference, paymentIntentId: string, paymentStatus: PaymentStatus) {
+    const hangerName: string = await hanger.get('id');
+    const venueName = (await venueRef.get()).get('name');
+    const userId = getRequestingUserId(context);
+    const userRef = db.doc(`users/${userId}`);
+    const userName = (await userRef.get()).get('name');
+
+    const reservationData = {
+        section: sectionRef,
+        hanger: hanger.ref,
+        hangerName: hangerName,
+        user: userRef,
+        userName: userName,
+        venue: venueRef,
+        venueName: venueName,
+        wardrobe: wardrobeRef,
+        state: ReservationState.INITIAL,
+        visibleInApp: true,
+        visibleInAdmin: false,
+        reservationTime: FieldValue.serverTimestamp(),
+        paymentIntent: paymentIntentId,
+        paymentStatus: paymentStatus
+    };
+    return await db.collection('reservations').add(reservationData)
+}
+
 /**
  * Reserves a hanger.
  * @param ref Reference to the hanger that should be reserved.
@@ -350,6 +265,98 @@ async function findAvailableHanger(sectionRef: FirebaseFirestore.DocumentReferen
         .get();
     return hangers.empty ? null : hangers.docs[0];
 }
+
+function intentToStatus(intent: IPaymentIntent) {
+    if (intent.status === "succeeded") {
+        return PaymentStatus.CAPTURED
+    } else if (intent.status === "requires_capture") {
+        return PaymentStatus.RESERVED
+    } else if (intent.status === "requires_action") {
+        return PaymentStatus.INITIAL
+    } else if (intent.status === "requires_payment_method") {
+        return PaymentStatus.INITIAL
+    } else if (intent.status === "canceled") {
+        return PaymentStatus.CANCELED
+    } else if (intent.status === "processing") {
+        console.error(intent.status);
+        return PaymentStatus.INITIAL
+    } else if (intent.status === "requires_confirmation") {
+        return PaymentStatus.INITIAL
+    }
+    return PaymentStatus.INITIAL
+}
+
+
+// noinspection JSUnusedGlobalSymbols
+/**
+ * Confirm an existing reservation after 3ds authentication or with a different payment method.
+ */
+export const confirmPayment = onCall(async (data, context) => {
+    const reservation = await admin.firestore().collection('reservations').doc(data.reservation).get();
+    const paymentIntentId = reservation.get('paymentIntent');
+    const paymentData = 'paymentMethodId' in data ? { payment_method: data.paymentIntentId } : {};
+    const intent = await stripe.paymentIntents.confirm(paymentIntentId, paymentData);
+    const status = intentToStatus(intent);
+    await reservation.ref.update('paymentStatus', status);
+    return { status: intent.status, nextAction: intent.next_action, clientSecret: intent.client_secret }
+});
+
+
+
+
+// noinspection JSUnusedGlobalSymbols
+export const confirmCheckIn = onCall(async (data, context) => {
+    const reservation: string = data.reservation;
+    const ref = db.doc(`reservations/${reservation}`);
+    const payload = {
+        checkIn: FieldValue.serverTimestamp(),
+        stateUpdated: FieldValue.serverTimestamp(),
+        state: ReservationState.CHECKED_IN
+    };
+    const wr = await ref.update(payload);
+    return { writeTime: wr.writeTime };
+});
+
+
+// noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
+/**
+ * Requests a check-out
+ */
+export const requestCheckOut = onCall(async (data, context) => {
+    const reservation: string = data.reservation;
+    const ref = db.doc(`reservations/${reservation}`);
+    const newData = {
+        state: ReservationState.CHECKING_OUT,
+        stateUpdated: FieldValue.serverTimestamp()
+    };
+    const wr = await ref.update(newData);
+    return { writeTime: wr.writeTime };
+});
+
+// noinspection JSUnusedGlobalSymbols
+export const confirmCheckOut = onCall(async (data, context) => {
+    const reservationRef = db.doc(`reservations/${data.reservation}`);
+    const reservation = await reservationRef.get();
+
+    const batch = db.batch();
+    const reservationData = {
+        checkOut: FieldValue.serverTimestamp(),
+        stateUpdated: FieldValue.serverTimestamp(),
+        state: ReservationState.CHECKED_OUT
+    };
+    batch.update(reservationRef, reservationData, { lastUpdateTime: reservation.updateTime });
+
+    const hangerRef = reservation.get('hanger');
+    const hangerData = {
+        state: HangerState.AVAILABLE,
+        stateUpdated: FieldValue.serverTimestamp()
+    };
+    batch.update(hangerRef, hangerData);
+    const wr = await batch.commit();
+    return { reservationUpdated: wr[0].writeTime, hangerUpdated: wr[1].writeTime }
+
+
+});
 
 
 class QrCode {
