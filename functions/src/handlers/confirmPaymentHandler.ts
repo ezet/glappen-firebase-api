@@ -1,0 +1,12 @@
+import * as functions from "firebase-functions";
+import {admin, intentToStatus, stripe} from "../utils";
+
+export async function confirmPaymentHandler(data: any, context: functions.https.CallableContext) {
+    const reservation = await admin.firestore().collection('reservations').doc(data.reservation).get();
+    const paymentIntentId = reservation.get('paymentIntent');
+    const paymentData = 'paymentMethodId' in data ? {payment_method: data.paymentIntentId} : {};
+    const intent = await stripe.paymentIntents.confirm(paymentIntentId, paymentData);
+    const status = intentToStatus(intent);
+    await reservation.ref.update('paymentStatus', status);
+    return {status: intent.status, nextAction: intent.next_action, clientSecret: intent.client_secret}
+}
