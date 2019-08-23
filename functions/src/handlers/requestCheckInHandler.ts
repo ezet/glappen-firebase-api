@@ -1,7 +1,16 @@
 // noinspection JSUnusedGlobalSymbols
 import {CallableContext, HttpsError} from "firebase-functions/lib/providers/https";
 import * as functions from "firebase-functions";
-import {admin, db, getRequestingUserId, HangerState, intentToStatus, stripe} from "../utils";
+import {
+    admin,
+    adminVisibilityForState,
+    clientVisibilityForState,
+    db,
+    getRequestingUserId,
+    HangerState,
+    intentToStatus,
+    stripe
+} from "../utils";
 import {FieldValue} from "@google-cloud/firestore";
 // @ts-ignore
 import Stripe = require("stripe");
@@ -73,6 +82,7 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
     const wardrobeName = (wardrobe).get('name');
     const color = (wardrobe).get('color');
 
+    const state = intentToStatus(paymentIntent);
     const reservationData = {
         section: sectionRef,
         hanger: hanger.ref,
@@ -84,9 +94,9 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
         wardrobe: wardrobeRef,
         wardrobeName: wardrobeName,
         color: color,
-        state: intentToStatus(paymentIntent),
-        visibleInApp: true,
-        visibleInAdmin: false,
+        state: state,
+        visibleInApp: clientVisibilityForState(state),
+        visibleInAdmin: adminVisibilityForState(state),
         reservationTime: FieldValue.serverTimestamp(),
         paymentIntent: paymentIntent.id
     };

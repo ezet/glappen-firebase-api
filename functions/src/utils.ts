@@ -15,6 +15,14 @@ export const admin = firebase_admin.initializeApp();
 export const db = admin.firestore();
 export const stripe = new Stripe(functions.config().stripe.test.secret_key);
 
+export function adminVisibilityForState(state: ReservationState | null) {
+    return state === ReservationState.PAYMENT_RESERVED || state === ReservationState.CHECKING_OUT
+}
+
+export function clientVisibilityForState(state: ReservationState | null) {
+    return state !== null && state !== ReservationState.CHECKED_OUT
+}
+
 export function intentToStatus(intent: Stripe.paymentIntents.IPaymentIntent): ReservationState | null {
     if (intent.status === "succeeded") {
         return null
