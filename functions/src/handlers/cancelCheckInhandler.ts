@@ -20,6 +20,9 @@ export async function cancelCheckInHandler(data: any, context: functions.https.C
 
     batch.update(reservationRef, {
         cancelled: true,
+        visibleInApp: false,
+        visibleInAdmin: false,
+        eligibleForTimeout: false,
         stateUpdated: FieldValue.serverTimestamp()
     });
 

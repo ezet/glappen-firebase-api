@@ -11,7 +11,7 @@ import {confirmCheckInHandler} from "./handlers/confirmCheckInHandler";
 import {requestCheckOutHandler} from "./handlers/requestCheckOutHandler";
 import {confirmCheckOutHandler} from "./handlers/confirmCheckOutHandler";
 import {cancelCheckInHandler} from "./handlers/cancelCheckInhandler";
-import {timeoutIntervalMinutes, timeoutReservationsHandler} from "./handler/timeoutReservationHandler";
+import {timeoutIntervalMinutes, timeoutReservationsHandler} from "./handlers/timeoutReservationHandler";
 
 
 const region = "europe-west2";

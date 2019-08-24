@@ -4,7 +4,6 @@ import {getRequestingUserId, getStripeCustomerId, stripe} from "../utils";
 export async function getEphemeralKeyHandler(data: any, context: functions.https.CallableContext) {
     const apiVersion = data.stripeversion;
     const customerId = await getStripeCustomerId(getRequestingUserId(context));
-    console.log(apiVersion);
     if (customerId === null) {
         throw new functions.https.HttpsError('failed-precondition', "User has no Stripe ID");
     }

@@ -1,14 +1,17 @@
 import * as functions from "firebase-functions";
-import {db, ReservationState} from "../utils";
+import {adminVisibilityForState, clientVisibilityForState, db, ReservationState} from "../utils";
 import {FieldValue} from "@google-cloud/firestore";
 
 export async function confirmCheckInHandler(data: any, context: functions.https.CallableContext) {
-    const reservation: string = data.reservation;
+    const reservation: string = data.reservationId;
     const ref = db.doc(`reservations/${reservation}`);
+    const newState = ReservationState.CHECKED_IN;
     const payload = {
-        checkIn: FieldValue.serverTimestamp(),
+        checkedIn: FieldValue.serverTimestamp(),
         stateUpdated: FieldValue.serverTimestamp(),
-        state: ReservationState.CHECKED_IN
+        state: newState,
+        visibleInApp: clientVisibilityForState(newState),
+        visibleInAdmin: adminVisibilityForState(newState)
     };
     const wr = await ref.update(payload);
     return {writeTime: wr.writeTime};
