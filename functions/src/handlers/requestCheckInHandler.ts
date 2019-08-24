@@ -95,6 +95,7 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
         wardrobeName: wardrobeName,
         color: color,
         state: state,
+        eligibleForTimeout: true,
         visibleInApp: clientVisibilityForState(state),
         visibleInAdmin: adminVisibilityForState(state),
         reservationTime: FieldValue.serverTimestamp(),
@@ -108,7 +109,7 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
  * @param ref Reference to the hanger that should be reserved.
  */
 function reserveHanger(ref: FirebaseFirestore.DocumentReference): Promise<FirebaseFirestore.WriteResult> {
-    const data = {'state': HangerState.TAKEN, 'stateUpdated': FieldValue.serverTimestamp()};
+    const data = {'state': HangerState.TAKEN};
     return ref.update(data)
 }
 
