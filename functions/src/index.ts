@@ -11,6 +11,7 @@ import {confirmCheckInHandler} from "./handlers/confirmCheckInHandler";
 import {requestCheckOutHandler} from "./handlers/requestCheckOutHandler";
 import {confirmCheckOutHandler} from "./handlers/confirmCheckOutHandler";
 import {DocumentReference, Timestamp} from '@google-cloud/firestore';
+import {cancelCheckInHandler} from "./handlers/cancelCheckInhandler";
 
 
 const region = "europe-west2";
@@ -64,6 +65,11 @@ export const requestCheckOut = onCall(requestCheckOutHandler);
 
 // noinspection JSUnusedGlobalSymbols
 export const confirmCheckOut = onCall(confirmCheckOutHandler);
+
+/**
+ * Cancel an on-going check-in
+ */
+export const cancelCheckIn = onCall(cancelCheckInHandler);
 
 // noinspection JSUnusedGlobalSymbols
 export const timeoutReservations = functions.runWith({memory: memory}).region(region).pubsub.schedule('every 5 minutes').onRun(async context => {

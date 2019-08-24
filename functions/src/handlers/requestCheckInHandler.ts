@@ -95,6 +95,7 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
         wardrobeName: wardrobeName,
         color: color,
         state: state,
+        stateUpdated: FieldValue.serverTimestamp(),
         eligibleForTimeout: true,
         visibleInApp: clientVisibilityForState(state),
         visibleInAdmin: adminVisibilityForState(state),
