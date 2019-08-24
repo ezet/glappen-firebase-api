@@ -11,7 +11,7 @@ import {confirmCheckInHandler} from "./handlers/confirmCheckInHandler";
 import {requestCheckOutHandler} from "./handlers/requestCheckOutHandler";
 import {confirmCheckOutHandler} from "./handlers/confirmCheckOutHandler";
 import {cancelCheckInHandler} from "./handlers/cancelCheckInhandler";
-import {timeoutReservationsHandler} from "./handler/timeoutReservationHandler";
+import {timeoutIntervalMinutes, timeoutReservationsHandler} from "./handler/timeoutReservationHandler";
 
 
 const region = "europe-west2";
@@ -72,4 +72,4 @@ export const confirmCheckOut = onCall(confirmCheckOutHandler);
 export const cancelCheckIn = onCall(cancelCheckInHandler);
 
 // noinspection JSUnusedGlobalSymbols
-export const timeoutReservations = functions.runWith({memory: memory}).region(region).pubsub.schedule('every 5 minutes').onRun(timeoutReservationsHandler);
+export const timeoutReservations = functions.runWith({memory: memory}).region(region).pubsub.schedule(`every ${timeoutIntervalMinutes} minutes`).onRun(timeoutReservationsHandler);
