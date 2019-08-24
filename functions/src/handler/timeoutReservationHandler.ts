@@ -14,6 +14,7 @@ const timeoutDelayMinutes = 5;
 export const timeoutIntervalMinutes = 5;
 
 
+// noinspection JSUnusedLocalSymbols
 export async function timeoutReservationsHandler(context: EventContext) {
 
     const timeoutDelayMs = timeoutDelayMinutes * 60 * 1000;

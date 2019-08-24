@@ -32,7 +32,7 @@ async function createSetupIntent(data: any, context: functions.https.CallableCon
 }
 
 
-async function confirmSetupIntent(data: any, context: functions.https.CallableContext) {
+async function confirmSetupIntent(data: any, _context: functions.https.CallableContext) {
     // @ts-ignore
     return await stripe.setupIntents.confirm({
         return_url: data.returnUrl,

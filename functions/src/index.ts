@@ -2,7 +2,7 @@ import * as functions from 'firebase-functions';
 
 import {requestCheckInHandler} from "./handlers/requestCheckInHandler";
 import {onCall} from "./utils";
-import {getEphemeralKeyHandler} from "./handlers/createEphemeralKeyHandler";
+import {getEphemeralKeyHandler} from "./handlers/getEphemeralKeyHandler";
 import {addPaymentMethodHandler} from "./handlers/addPaymentMethodHandler";
 import {setupUserHandler} from "./handlers/setupUserHandler";
 import {cleanupUserHandler} from "./handlers/cleanupUserHandler";
@@ -66,6 +66,7 @@ export const requestCheckOut = onCall(requestCheckOutHandler);
 // noinspection JSUnusedGlobalSymbols
 export const confirmCheckOut = onCall(confirmCheckOutHandler);
 
+// noinspection JSUnusedGlobalSymbols
 /**
  * Cancel an on-going check-in
  */

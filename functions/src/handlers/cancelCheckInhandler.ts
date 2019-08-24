@@ -3,8 +3,9 @@ import {db, HangerState, stripe} from "../utils";
 import {FieldValue} from "@google-cloud/firestore";
 import DocumentReference = FirebaseFirestore.DocumentReference;
 
+// noinspection JSUnusedLocalSymbols
 export async function cancelCheckInHandler(data: any, context: functions.https.CallableContext) {
-    const reservationId: string = data.reservation;
+    const reservationId: string = data.reservationId;
     const reservationRef = db.doc(`reservations/${reservationId}`);
     const reservation = await reservationRef.get();
     const paymentIntentId = reservation.get('paymentIntent');
