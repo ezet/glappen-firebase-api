@@ -51,9 +51,15 @@ export async function timeoutReservationsHandler(context: EventContext) {
                 console.log(e.code);
                 console.log(e.detail);
             }
-        });
-
-
+        }).catch((e) => {
+            console.log(e);
+            if (e instanceof StripeError) {
+                console.log(e.type);
+                console.log(e.message);
+                console.log(e.code);
+                console.log(e.detail);
+            }
+        })
     }
     return Promise.all(promiseArray);
 }
