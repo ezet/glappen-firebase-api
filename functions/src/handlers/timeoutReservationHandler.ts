@@ -1,7 +1,7 @@
-import {EventContext} from "firebase-functions";
-import {DocumentReference, Timestamp} from "@google-cloud/firestore";
-import {admin, db, HangerState, stripe} from "../utils";
-import {DocumentSnapshot} from "firebase-functions/lib/providers/firestore";
+import { EventContext } from "firebase-functions";
+import { DocumentReference, Timestamp } from "@google-cloud/firestore";
+import { admin, db, HangerState, stripe } from "../utils";
+import { DocumentSnapshot } from "firebase-functions/lib/providers/firestore";
 import Stripe = require("stripe");
 import StripeError = Stripe.errors.StripeError;
 
@@ -25,8 +25,8 @@ function cleanupReservation(item: DocumentSnapshot, promiseArray: Promise<any>[]
     }
 
     batch.update(item.ref, {
-            timeout: true, visibleInApp: false, visibleInAdmin: false, eligibleForTimeout: false
-        }
+        timeout: true, visibleInApp: false, visibleInAdmin: false, eligibleForTimeout: false
+    }
     );
     promiseArray.push(batch.commit());
 }
@@ -36,7 +36,10 @@ export async function timeoutReservationsHandler(context: EventContext) {
 
     const timeoutDelayMs = timeoutDelayMinutes * 60 * 1000;
     const fiveMinutesAgo = Timestamp.fromMillis(Timestamp.now().toMillis() - timeoutDelayMs);
-    const reservations = await admin.firestore().collection('reservations').where('reservationTime', "<", fiveMinutesAgo).where('eligibleForTimeout', '==', true).get();
+    const reservations = await admin.firestore()
+        .collection('reservations')
+        .where('reservationTime', "<", fiveMinutesAgo)
+        .where('eligibleForTimeout', '==', true).get();
     const promiseArray: Promise<any>[] = [];
     console.log(`Cleaning up ${reservations.docs.length} reservations...`);
     for (const item of reservations.docs) {

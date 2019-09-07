@@ -1,8 +1,8 @@
-import {UserRecord} from "firebase-functions/lib/providers/auth";
-import {CallableContext} from "firebase-functions/lib/providers/https";
+import { UserRecord } from "firebase-functions/lib/providers/auth";
+import { CallableContext } from "firebase-functions/lib/providers/https";
 import * as functions from "firebase-functions";
 import * as logging from "@google-cloud/logging";
-import {ApiResponse} from "@google-cloud/logging/build/src/log";
+import { ApiResponse } from "@google-cloud/logging/build/src/log";
 import * as firebase_admin from "firebase-admin";
 // @ts-ignore
 import Stripe = require("stripe");
@@ -38,7 +38,9 @@ export function intentToStatus(intent: Stripe.paymentIntents.IPaymentIntent): Re
         console.error(intent.status);
         return null
     } else if (intent.status === "requires_confirmation") {
+        console.error(intent.status);
         return null
+        // return ReservationState.REQUIRES_CONFIRMATION
     }
     return null
 }// @ts-ignore
@@ -47,7 +49,7 @@ export function intentToStatus(intent: Stripe.paymentIntents.IPaymentIntent): Re
  * @param handler The call handler
  */
 export function onCall(handler: (data: any, context: functions.https.CallableContext) => any) {
-    return functions.runWith({memory: memory}).region(region).https.onCall(handler);
+    return functions.runWith({ memory: memory }).region(region).https.onCall(handler);
 }
 
 /**

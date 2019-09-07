@@ -73,4 +73,4 @@ export const confirmCheckOut = onCall(confirmCheckOutHandler);
 export const cancelCheckIn = onCall(cancelCheckInHandler);
 
 // noinspection JSUnusedGlobalSymbols
-export const timeoutReservations = functions.runWith({memory: memory}).region(region).pubsub.schedule(`every ${timeoutIntervalMinutes} minutes`).onRun(timeoutReservationsHandler);
+export const timeoutTask = functions.runWith({memory: memory}).region(region).pubsub.schedule(`every ${timeoutIntervalMinutes} minutes`).onRun(timeoutReservationsHandler);

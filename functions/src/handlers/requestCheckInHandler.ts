@@ -1,5 +1,5 @@
 // noinspection JSUnusedGlobalSymbols
-import {CallableContext, HttpsError} from "firebase-functions/lib/providers/https";
+import { CallableContext, HttpsError } from "firebase-functions/lib/providers/https";
 import * as functions from "firebase-functions";
 import {
     admin,
@@ -11,7 +11,7 @@ import {
     intentToStatus,
     stripe
 } from "../utils";
-import {FieldValue} from "@google-cloud/firestore";
+import { FieldValue } from "@google-cloud/firestore";
 // @ts-ignore
 import Stripe = require("stripe");
 
@@ -21,11 +21,11 @@ import Stripe = require("stripe");
  *
  * Returns 'resource-exhausted' if there are no available hangers.
  */
-// export const requestCheckIn = onCall(async (data, context) => {
 export async function requestCheckInHandler(data: any, context: functions.https.CallableContext) {
     // TODO: validate input
     const code = tokenize(data.code);
     const paymentMethodId = data.paymentMethodId;
+    const numTickets = data.tickets;
     const userId = getRequestingUserId(context);
 
     const venueRef = db.doc(`/venues/${code.venueId}`);
@@ -41,7 +41,8 @@ export async function requestCheckInHandler(data: any, context: functions.https.
     const user = await admin.firestore().collection('users').doc(userId).get();
     const customer_id = user.get('stripeId');
     const user_email = user.get('email');
-    const returnUrl = data.returnUrl;
+
+    const price = 2500;
 
     // TODO: get amount from section
     // TODO: add statement descriptor
@@ -52,11 +53,12 @@ export async function requestCheckInHandler(data: any, context: functions.https.
         customer: customer_id,
         payment_method: paymentMethodId,
         confirmation_method: "manual",
-        amount: 2500,
+        amount: price * numTickets,
+        // application_fee_amount: 250,
+        return_url: 'stripesdk://3ds.stripesdk.io',
         confirm: true,
         capture_method: "manual",
         currency: 'NOK',
-        return_url: returnUrl,
         receipt_email: user_email,
         payment_method_types: ['card'],
         setup_future_usage: "on_session"
@@ -64,15 +66,15 @@ export async function requestCheckInHandler(data: any, context: functions.https.
 
     // const paymentStatus = intentToStatus(intent);
     const ref = await createReservation(hanger, venueRef, context, sectionRef, wardrobeRef, intent);
-    return {status: intent.status, nextAction: intent.next_action, clientSecret: intent.client_secret, id: ref.id}
+    return { status: intent.status, nextAction: intent.next_action, clientSecret: intent.client_secret, id: ref.id }
 }
 
 async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot,
-                                 venueRef: FirebaseFirestore.DocumentReference,
-                                 context: CallableContext,
-                                 sectionRef: FirebaseFirestore.DocumentReference,
-                                 wardrobeRef: FirebaseFirestore.DocumentReference,
-                                 paymentIntent: Stripe.paymentIntents.IPaymentIntent) {
+    venueRef: FirebaseFirestore.DocumentReference,
+    context: CallableContext,
+    sectionRef: FirebaseFirestore.DocumentReference,
+    wardrobeRef: FirebaseFirestore.DocumentReference,
+    paymentIntent: Stripe.paymentIntents.IPaymentIntent) {
     const hangerName: string = await hanger.get('id');
     const venueName = (await venueRef.get()).get('name');
     const userId = getRequestingUserId(context);
@@ -110,7 +112,7 @@ async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot
  * @param ref Reference to the hanger that should be reserved.
  */
 function reserveHanger(ref: FirebaseFirestore.DocumentReference): Promise<FirebaseFirestore.WriteResult> {
-    const data = {'state': HangerState.TAKEN};
+    const data = { 'state': HangerState.TAKEN };
     return ref.update(data)
 }
 
