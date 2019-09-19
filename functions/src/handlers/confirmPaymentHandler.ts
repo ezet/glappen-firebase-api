@@ -19,5 +19,5 @@ export async function confirmPaymentHandler(data: any, context: functions.https.
         visibleInApp: clientVisibilityForState(status),
         visibleInAdmin: adminVisibilityForState(status)
     });
-    return { status: intent.status, nextAction: intent.next_action, clientSecret: intent.client_secret }
+    return { status: intent.status, next_action: intent.next_action, client_secret: intent.client_secret }
 }

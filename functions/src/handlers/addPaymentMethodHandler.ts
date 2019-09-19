@@ -9,7 +9,7 @@ export async function addPaymentMethodHandler(data: any, context: functions.http
     } else {
         setupIntent = await confirmSetupIntent(data, context)
     }
-    return {status: setupIntent.status, clientSecret: setupIntent.client_secret};
+    return {status: setupIntent.status, client_secret: setupIntent.client_secret};
 }
 
 async function createSetupIntent(data: any, context: functions.https.CallableContext) {

@@ -24,7 +24,8 @@ import Stripe = require("stripe");
 export async function requestCheckInHandler(data: any, context: functions.https.CallableContext) {
     // TODO: validate input
     const code = tokenize(data.code);
-    const paymentMethodId = data.paymentMethodId;
+    const returnUrl = data.return_url;
+    const paymentMethodId = data.payment_method_id;
     const numTickets = data.tickets;
     const userId = getRequestingUserId(context);
 
@@ -55,7 +56,7 @@ export async function requestCheckInHandler(data: any, context: functions.https.
         confirmation_method: "manual",
         amount: price * numTickets,
         // application_fee_amount: 250,
-        return_url: 'stripesdk://3ds.stripesdk.io',
+        return_url: returnUrl,
         confirm: true,
         capture_method: "manual",
         currency: 'NOK',
@@ -66,7 +67,7 @@ export async function requestCheckInHandler(data: any, context: functions.https.
 
     // const paymentStatus = intentToStatus(intent);
     const ref = await createReservation(hanger, venueRef, context, sectionRef, wardrobeRef, intent);
-    return { status: intent.status, nextAction: intent.next_action, clientSecret: intent.client_secret, id: ref.id }
+    return { status: intent.status, next_action: intent.next_action, client_secret: intent.client_secret, id: ref.id }
 }
 
 async function createReservation(hanger: FirebaseFirestore.QueryDocumentSnapshot,

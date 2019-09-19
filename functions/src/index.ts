@@ -3,7 +3,6 @@ import * as functions from 'firebase-functions';
 import {requestCheckInHandler} from "./handlers/requestCheckInHandler";
 import {onCall} from "./utils";
 import {getEphemeralKeyHandler} from "./handlers/getEphemeralKeyHandler";
-import {addPaymentMethodHandler} from "./handlers/addPaymentMethodHandler";
 import {setupUserHandler} from "./handlers/setupUserHandler";
 import {cleanupUserHandler} from "./handlers/cleanupUserHandler";
 import {confirmPaymentHandler} from "./handlers/confirmPaymentHandler";
@@ -22,7 +21,8 @@ const memory = "128MB";
 /**
  * Add payment method
  */
-export const addPaymentMethod = onCall(addPaymentMethodHandler);
+// Not required
+// export const addPaymentMethod = onCall(addPaymentMethodHandler);
 
 // noinspection JSUnusedGlobalSymbols
 /**
